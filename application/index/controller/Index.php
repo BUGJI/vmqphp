@@ -206,7 +206,11 @@ class Index
         for ($i = 0; $i < 10; $i++) {
             $tmpPrice = $reallyPrice . "-" . $type;
 
-            $row = Db::execute("INSERT IGNORE INTO tmp_price (price,oid) VALUES ('" . $tmpPrice . "','".$orderId."')");
+            if (strtolower(config('database.type')) == 'sqlite') {
+                $row = Db::execute("INSERT OR IGNORE INTO tmp_price (price,oid) VALUES ('" . $tmpPrice . "','".$orderId."')");
+            } else {
+                $row = Db::execute("INSERT IGNORE INTO tmp_price (price,oid) VALUES ('" . $tmpPrice . "','".$orderId."')");
+            }
             if ($row) {
                 $ok = true;
                 break;

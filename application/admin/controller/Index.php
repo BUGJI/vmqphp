@@ -59,8 +59,12 @@ class Index
             ->where("state >=1")
             ->sum("price");
 
-        $v = Db::query("SELECT VERSION();");
-        $v=$v[0]['VERSION()'];
+        if (strtolower(config('database.type')) == 'sqlite') {
+            $v = Db::query("SELECT sqlite_version() AS v");
+        } else {
+            $v = Db::query("SELECT VERSION() AS v");
+        }
+        $v = $v[0]['v'];
 
         if(function_exists("gd_info")) {
             $gd_info = @gd_info();
