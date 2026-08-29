@@ -68,6 +68,11 @@ class Error
      */
     public static function appError($errno, $errstr, $errfile = '', $errline = 0)
     {
+        // 忽略 PHP 7.4+/8.x 的 deprecation 提示，避免老框架在 debug 模式下直接 500
+        if (in_array($errno, [E_DEPRECATED, E_USER_DEPRECATED], true)) {
+            return true;
+        }
+
         $exception = new ErrorException($errno, $errstr, $errfile, $errline);
         if (error_reporting() & $errno) {
             // 将错误信息托管至 think\exception\ErrorException
