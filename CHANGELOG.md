@@ -2,6 +2,44 @@
 
 本仓库为 [szvone/vmqphp](https://github.com/szvone/vmqphp) 的维护分支。原项目已停止维护，此分支在保持原功能不变的前提下，修复新环境下的兼容性问题。
 
+## [1.12.3] - 2026-08-31
+
+### Added
+
+- **后台「接口模式」切换（V免签格式 / 易支付格式）**：系统对外接口协议可一键切换——
+  - 后台「系统设置」新增「接口模式」下拉框：`0` = V免签格式（默认，原协议不变），`1` = 易支付格式。
+  - 两种模式**互斥**：易支付模式下 `createOrder` / `getOrder` 返回提示改用易支付接口；V免签模式下 `epaySubmit` / `epayOrder` 同样被拦截。
+  - 易支付模式对接协议（与彩虹易支付一致）：
+    - 下单 `epaySubmit`：`pid` 固定为 `1`，`type` 传 `alipay` / `wxpay`（内部映射支付宝→2、微信→1），`sign` = 参数按 ASCII 升序 `k=v&` 拼接后追加通讯密钥再 md5。
+    - 查单 `epayOrder`：`pid + key` 认证，返回 `trade_no / out_trade_no / type / money / status` 标准格式。
+    - 回调：支付成功由 `appPush` 以 **GET** 方式通知商户 `notify_url`，参数含 `pid / trade_no / out_trade_no / type / name / money / trade_status(TRADE_SUCCESS) / sign`，商户验签后输出字符串 `success`。
+    - `key`、`notify_url`、`return_url` 两种模式共用后台设置；下单未传 `notify_url` / `return_url` 时使用后台默认值。
+- **回调失败自动重试**：弥补 V免签无重试设计的缺陷——异步通知失败（未返回 `success`）的订单标记 `state=2` 后，系统间隔约 60 秒自动重发回调，最多重试 3 次；重发成功自动恢复 `state=1`。`pay_order` 表新增 `retry_count` 字段。
+- **易支付协议测试入口**：`public/example/main_epay.php`（与 `main.php` 并列），`index.html` 增加「接口协议」下拉框选择 V免签 / 易支付协议。
+- **接口文档更新**：`public/api.html` 新增「易支付模式」章节，含下单 / 查单 / 回调验签 PHP 示例。
+
+### Changed
+
+- `index/controller/Index.php`：
+  - 抽出建单核心 `_createOrderCore()` 供 `createOrder` / `epaySubmit` 共用（原 V免签下单行为不变）。
+  - `appPush` 回调按接口模式分流：易支付模式发送易支付格式回调，V免签模式保持原格式。
+  - 新增 `epaySign()`（ksort md5 签名）、`epaySubmit()`、`epayOrder()`、`_retryNotify()`。
+- `admin/controller/Index.php`：`getSettings` 返回 `apiMode`，`saveSetting` 写入 `apiMode`（行不存在时用 `REPLACE INTO` 兼容 MySQL / SQLite）。
+- `route/route.php`：新增 `epaySubmit` / `epayOrder` 两条路由。
+- `public/install.php`：初始化 `setting` 表种子增加 `apiMode`，`pay_order` 建表增加 `retry_count`（MySQL / SQLite 双库）。
+- **后台设置保存放宽校验**：保存时不再强制要求同步回调地址（`returnUrl`）、异步回调地址（`notifyUrl`）、微信 / 支付宝收款二维码非空，避免阻挡用户修改密钥、接口模式等其他配置。
+
+### 升级说明
+
+- 已部署的旧库需手动执行两条 SQL（新装用 `install.php` 自动完成）：
+
+  ```sql
+  ALTER TABLE pay_order ADD COLUMN retry_count INT NOT NULL DEFAULT 0;
+  INSERT INTO setting (vkey, vvalue) VALUES ('apiMode', '0');
+  ```
+
+- 易支付模式下商户端回调接口请参照 `public/api.html`「易支付模式」章节实现验签并返回 `success`。
+
 ## [1.12.2] - 2026-08-29
 
 ### Added

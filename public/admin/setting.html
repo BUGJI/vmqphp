@@ -292,16 +292,8 @@
             layer.msg("请输入创建的订单几分钟后失效");
             return;
         }
-        var wximg = $("#wximg").attr("src");
-        if (wximg=="" || !wximg){
-            layer.msg("请上传微信无金额的收款二维码");
-            return;
-        }
-        var zfbimg = $("#zfbimg").attr("src");
-        if (zfbimg=="" || !zfbimg){
-            layer.msg("请上传支付宝无金额的收款二维码");
-            return;
-        }
+        var wximg = $("#wximg").attr("src") || "";
+        var zfbimg = $("#zfbimg").attr("src") || "";
         wximg = wximg.replace(/enQrcode\?url=/g,"");
         zfbimg = zfbimg.replace(/enQrcode\?url=/g,"");
         $.post("admin/index/saveSetting","user="+user+"&pass="+pass+"&notifyUrl="+notifyUrl+"&returnUrl="+returnUrl+"&key="+key+"&wxpay="+wximg+"&zfbpay="+zfbimg+"&close="+close+"&payQf="+payQf+"&apiMode="+apiMode,function (data) {
