@@ -700,6 +700,11 @@ class Index
 
 
             $re = $this->getCurl($url);
+            if ($re != "success"){
+                // 首次回调偶发失败（如 notify 端首次连库/排队超时），立即重试一次
+                sleep(1);
+                $re = $this->getCurl($url);
+            }
             if ($re=="success"){
                 return json($this->getReturn());
             }else{
@@ -850,7 +855,7 @@ class Index
     {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         $klsf[] = 'Accept:*/*';
         $klsf[] = 'Accept-Language:zh-cn';
@@ -871,7 +876,7 @@ class Index
         if ($nobaody) {
             curl_setopt($ch, CURLOPT_NOBODY, 1);
         }
-        curl_setopt($ch, CURLOPT_TIMEOUT,5);
+        curl_setopt($ch, CURLOPT_TIMEOUT,10);
         curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         $ret = curl_exec($ch);
