@@ -331,12 +331,7 @@ class Index
     //获取订单信息
     public function getOrder()
     {
-        // 接口模式检查：易支付工作模式下请使用 epayOrder
-        $apiMode = Db::name("setting")->where("vkey","apiMode")->find();
-        if ($apiMode && $apiMode['vvalue']=="1"){
-            return json($this->getReturn(-1,"当前为易支付工作模式，请使用 epayOrder 接口"));
-        }
-
+        // 支付页 pay.html 内部查单接口（不随接口模式拦截；对外协议互斥只作用于 createOrder/epaySubmit）
         $res = Db::name("pay_order")->where("order_id", input("orderId"))->find();
         if ($res){
             $time = Db::name("setting")->where("vkey", "close")->find();
@@ -801,7 +796,7 @@ class Index
         $rows = Db::name("pay_order")
             ->where("state",2)
             ->where("retry_count", "<", 3)
-            ->limit(20)
+            ->limit(1)
             ->select();
         foreach ($rows as $row){
             if (time() - $row['close_date'] < 60) continue;
@@ -855,7 +850,7 @@ class Index
     {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5);
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         $klsf[] = 'Accept:*/*';
         $klsf[] = 'Accept-Language:zh-cn';
@@ -876,7 +871,7 @@ class Index
         if ($nobaody) {
             curl_setopt($ch, CURLOPT_NOBODY, 1);
         }
-        curl_setopt($ch, CURLOPT_TIMEOUT,60);
+        curl_setopt($ch, CURLOPT_TIMEOUT,5);
         curl_setopt($ch, CURLOPT_ENCODING, 'gzip');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         $ret = curl_exec($ch);
