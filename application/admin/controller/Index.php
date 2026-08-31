@@ -294,14 +294,34 @@ class Index
             $res2 = Db::name("setting")->where("vkey","key")->find();
             $key = $res2['vvalue'];
 
-            $p = "payId=".$res['pay_id']."&param=".$res['param']."&type=".$res['type']."&price=".$res['price']."&reallyPrice=".$res['really_price'];
-
-            $sign = $res['pay_id'].$res['param'].$res['type'].$res['price'].$res['really_price'].$key;
-            $p = $p . "&sign=".md5($sign);
-            if (strpos($url,"?")===false){
-                $url = $url."?".$p;
+            // 接口模式分流：易支付格式回调（与 appPush 一致）
+            $apiMode = Db::name("setting")->where("vkey","apiMode")->find();
+            if ($apiMode && $apiMode['vvalue']=="1"){
+                $p = array(
+                    "pid" => "1",
+                    "trade_no" => $res['order_id'],
+                    "out_trade_no" => $res['pay_id'],
+                    "type" => ($res['type']==1 ? "wxpay" : "alipay"),
+                    "name" => $res['param'],
+                    "money" => $res['really_price'],
+                    "trade_status" => "TRADE_SUCCESS"
+                );
+                $p['sign'] = $this->epaySign($p, $key);
+                if (strpos($url,"?")===false){
+                    $url = $url."?".http_build_query($p);
+                }else{
+                    $url = $url."&".http_build_query($p);
+                }
             }else{
-                $url = $url."&".$p;
+                $p = "payId=".$res['pay_id']."&param=".$res['param']."&type=".$res['type']."&price=".$res['price']."&reallyPrice=".$res['really_price'];
+
+                $sign = $res['pay_id'].$res['param'].$res['type'].$res['price'].$res['really_price'].$key;
+                $p = $p . "&sign=".md5($sign);
+                if (strpos($url,"?")===false){
+                    $url = $url."?".$p;
+                }else{
+                    $url = $url."&".$p;
+                }
             }
 
             $re = $this->getCurl($url);
@@ -386,8 +406,20 @@ class Index
         return $_SERVER['REMOTE_ADDR'];
     }
     //发送Http请求
-    function getCurl($url, $post = 0, $cookie = 0, $header = 0, $nobaody = 0)
-    {
+    function epaySign($param, $key){
+        ksort($param);
+        $signstr = '';
+        foreach($param as $k => $v){
+            if ($k != "sign" && $k != "sign_type" && $v != ''){
+                $signstr .= $k.'='.$v.'&';
+            }
+        }
+        $signstr = substr($signstr,0,-1);
+        $signstr .= $key;
+        return md5($signstr);
+    }
+
+    function getCurl($url, $post = 0, $cookie = 0, $header = 0, $nobaody = 0)    {
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_TIMEOUT, 15);

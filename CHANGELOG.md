@@ -38,6 +38,8 @@
 
 - **易支付模式下支付页误报「订单已过期」**：`getOrder` 此前在易支付模式（apiMode=1）下被拦截返回「请使用 epayOrder 接口」，而支付页 `payPage/pay.html` 依赖 `getOrder` 查单，导致下单跳转后立即显示订单过期。已移除 `getOrder` 的模式拦截——它是支付页内部查单接口，协议互斥只保留在下单接口（`createOrder` / `epaySubmit`）。
 - **回调重发阻塞导致站点周期性无响应**：`getCurl` 超时被后一次赋值覆盖为 **60 秒**（先设 15 又被覆盖成 60），且 `_retryNotify` 每次心跳（`appHeart`）串行重发最多 20 个失败订单——若存在 `state=2` 且回调地址不可达的订单，一次重发窗口可阻塞 PHP-FPM 进程长达 20×60 秒，进程池占满后整站「访问不上」。已修复：curl 超时统一为 **5 秒**；`_retryNotify` 每轮只重发 **1 个**订单（配合原有 60 秒间隔天然限速），避免回调风暴。
+- **示例回调接收端智能验签**：`example/notify.php` / `example/return.php` 原先只用 V免签格式验签且密钥写死示例默认值，导致易支付模式（apiMode=1）下真实支付回调与后台补单回调全部返回 `error_sign`、订单无法标记成功。现已支持 **V免签 / 易支付双格式自动识别**，且密钥优先从回调参数、其次自动读取 `config/database.php` 的 `setting.key`（MySQL / SQLite 兼容），无需手动改文件。
+- **后台补单按接口模式分流**：`admin/index/setBd` 原先固定发送 V免签格式回调，易支付模式下商户收到错误协议；已按 `apiMode` 分流，与 `appPush` 回调格式保持一致（易支付格式 ksort-md5 签名）。
 
 ### 升级说明
 
