@@ -137,6 +137,7 @@ class Index
         $payQf = Db::name("setting")->where("vkey","payQf")->find();
         $wxpay = Db::name("setting")->where("vkey","wxpay")->find();
         $zfbpay = Db::name("setting")->where("vkey","zfbpay")->find();
+        $apiMode = Db::name("setting")->where("vkey","apiMode")->find();
         if ($key['vvalue']==""){
             $key['vvalue'] = md5(time());
             Db::name("setting")->where("vkey","key")->update(array(
@@ -157,6 +158,7 @@ class Index
             "payQf"=>$payQf['vvalue'],
             "wxpay"=>$wxpay['vvalue'],
             "zfbpay"=>$zfbpay['vvalue'],
+            "apiMode"=>(isset($apiMode['vvalue'])?$apiMode['vvalue']:"0"),
 
         )));
 
@@ -176,6 +178,15 @@ class Index
         Db::name("setting")->where("vkey","wxpay")->update(array("vvalue"=>input("wxpay")));
         Db::name("setting")->where("vkey","zfbpay")->update(array("vvalue"=>input("zfbpay")));
 
+        // 接口模式（0=V免签格式 1=易支付格式），行可能不存在用 REPLACE 兼容双库
+        $apiMode = input("apiMode");
+        if ($apiMode === "" || $apiMode === null) { $apiMode = "0"; }
+        $apiMode = intval($apiMode);
+        if (strtolower(config('database.type')) == 'sqlite') {
+            Db::execute("INSERT OR REPLACE INTO setting (vkey,vvalue) VALUES ('apiMode','".$apiMode."')");
+        } else {
+            Db::execute("REPLACE INTO `setting` (`vkey`,`vvalue`) VALUES ('apiMode','".$apiMode."')");
+        }
 
         return json($this->getReturn());
 

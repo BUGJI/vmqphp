@@ -128,6 +128,12 @@ class Index
     {
         $this->closeEndOrder();
 
+        // 接口模式检查：易支付工作模式下请使用 epaySubmit
+        $apiMode = Db::name("setting")->where("vkey","apiMode")->find();
+        if ($apiMode && $apiMode['vvalue']=="1"){
+            return json($this->getReturn(-1,"当前为易支付工作模式，请使用 epaySubmit 接口"));
+        }
+
         $payId = input("payId");
         if (!$payId || $payId == "") {
             return json($this->getReturn(-1, "请传入商户订单号"));
@@ -185,10 +191,36 @@ class Index
             return json($this->getReturn(-1, "签名错误"));
         }
 
+        $result = $this->_createOrderCore($payId, $type, $price, $param, $notify_url, $return_url);
+        if (!$result['ok']) {
+            return json($this->getReturn(-1, $result['msg']));
+        }
+
+        if ($isHtml == 1) {
+
+            echo "<script>window.location.href = 'payPage/pay.html?orderId=" . $result['data']['orderId'] . "'</script>";
+
+        } else {
+            return json($this->getReturn(1, "成功", $result['data']));
+        }
+    }
+
+    /**
+     * 建单核心（createOrder / epaySubmit 共用）
+     * @param string $payId 商户订单号
+     * @param int    $type 支付方式 1微信 2支付宝
+     * @param string $price 订单金额
+     * @param string $param 自定义参数
+     * @param string $notify_url 异步回调地址
+     * @param string $return_url 同步回调地址
+     * @return array ['ok'=>true,'data'=>array] 或 ['ok'=>false,'msg'=>string]
+     */
+    private function _createOrderCore($payId, $type, $price, $param, $notify_url, $return_url)
+    {
         $jkstate = Db::name("setting")->where("vkey", "jkstate")->find();
         $jkstate = $jkstate['vvalue'];
         if ($jkstate!="1"){
-            return json($this->getReturn(-1, "监控端状态异常，请检查"));
+            return array("ok"=>false,"msg"=>"监控端状态异常，请检查");
 
         }
 
@@ -223,7 +255,7 @@ class Index
         }
 
         if (!$ok) {
-            return json($this->getReturn(-1, "订单超出负荷，请稍后重试"));
+            return array("ok"=>false,"msg"=>"订单超出负荷，请稍后重试");
         }
         //echo $reallyPrice;
 
@@ -239,7 +271,7 @@ class Index
         }
 
         if ($payUrl == "") {
-            return json($this->getReturn(-1, "请您先进入后台配置程序"));
+            return array("ok"=>false,"msg"=>"请您先进入后台配置程序");
         }
         $isAuto = 1;
         $_payUrl = Db::name("pay_qrcode")
@@ -254,7 +286,7 @@ class Index
 
         $res = Db::name("pay_order")->where("pay_id", $payId)->find();
         if ($res) {
-            return json($this->getReturn(-1, "商户订单号已存在"));
+            return array("ok"=>false,"msg"=>"商户订单号已存在");
         }
 
 
@@ -282,36 +314,28 @@ class Index
 
         Db::name("pay_order")->insert($data);
 
-
-        //return "<script>window.location.href = '/payPage/pay.html?orderId=" + c.getOrderId() + "'</script>";
-
-        if ($isHtml == 1) {
-
-            echo "<script>window.location.href = 'payPage/pay.html?orderId=" . $orderId . "'</script>";
-
-        } else {
-            $time = Db::name("setting")->where("vkey", "close")->find();
-            $data = array(
-                "payId" => $payId,
-                "orderId" => $orderId,
-                "payType" => $type,
-                "price" => $price,
-                "reallyPrice" => $reallyPrice,
-                "payUrl" => $payUrl,
-                "isAuto" => $isAuto,
-                "state" => 0,
-                "timeOut" => $time['vvalue'],
-                "date" => $createDate
-            );
-            return json($this->getReturn(1, "成功", $data));
-
-        }
-
-
+        $time = Db::name("setting")->where("vkey", "close")->find();
+        return array("ok"=>true,"data"=>array(
+            "payId" => $payId,
+            "orderId" => $orderId,
+            "payType" => $type,
+            "price" => $price,
+            "reallyPrice" => $reallyPrice,
+            "payUrl" => $payUrl,
+            "isAuto" => $isAuto,
+            "state" => 0,
+            "timeOut" => $time['vvalue'],
+            "date" => $createDate
+        ));
     }
     //获取订单信息
     public function getOrder()
     {
+        // 接口模式检查：易支付工作模式下请使用 epayOrder
+        $apiMode = Db::name("setting")->where("vkey","apiMode")->find();
+        if ($apiMode && $apiMode['vvalue']=="1"){
+            return json($this->getReturn(-1,"当前为易支付工作模式，请使用 epayOrder 接口"));
+        }
 
         $res = Db::name("pay_order")->where("order_id", input("orderId"))->find();
         if ($res){
@@ -373,6 +397,155 @@ class Index
             return json($this->getReturn(-1, "云端订单编号不存在"));
         }
 
+    }
+
+    //================= 易支付协议（接口模式=易支付格式时使用） =================
+
+    /**
+     * 易支付格式签名：参数按字母排序(ksort)，排除 sign/sign_type 及空值，k=v& 拼接后追加 key，md5
+     */
+    private function epaySign($param, $key){
+        ksort($param);
+        $signstr = '';
+        foreach($param as $k => $v){
+            if ($k != "sign" && $k != "sign_type" && $v != ''){
+                $signstr .= $k.'='.$v.'&';
+            }
+        }
+        $signstr = substr($signstr,0,-1);
+        $signstr .= $key;
+        return md5($signstr);
+    }
+
+    /**
+     * 易支付协议下单（submit）
+     * pid 固定为 1，key 使用后台通讯密钥
+     */
+    public function epaySubmit(){
+        $this->closeEndOrder();
+
+        // 接口模式检查
+        $apiMode = Db::name("setting")->where("vkey","apiMode")->find();
+        if (!$apiMode || $apiMode['vvalue']!="1"){
+            return json($this->getReturn(-1,"当前为V免签工作模式，请使用 createOrder 接口"));
+        }
+
+        $pid = input("pid");
+        $type = input("type");
+        $notify_url = input("notify_url");
+        $return_url = input("return_url");
+        $out_trade_no = input("out_trade_no");
+        $name = input("name");
+        $money = input("money");
+        $sign = input("sign");
+        $isJson = input("isJson");
+
+        if ($pid != "1"){
+            return json($this->getReturn(-1,"商户ID不存在"));
+        }
+        if (!$out_trade_no || $out_trade_no == ""){
+            return json($this->getReturn(-1,"请传入商户订单号"));
+        }
+        if (!$money || $money == "" || !is_numeric($money) || $money <= 0){
+            return json($this->getReturn(-1,"请传入正确的订单金额"));
+        }
+        if (!$type || $type == ""){
+            return json($this->getReturn(-1,"请传入支付方式"));
+        }
+        if (!$sign || $sign == ""){
+            return json($this->getReturn(-1,"请传入签名"));
+        }
+        if ($type != "alipay" && $type != "wxpay"){
+            return json($this->getReturn(-1,"不支持的支付方式"));
+        }
+
+        // 验签
+        $res2 = Db::name("setting")->where("vkey","key")->find();
+        $key = $res2['vvalue'];
+        $paramArr = array(
+            "pid" => $pid,
+            "type" => $type,
+            "notify_url" => $notify_url,
+            "return_url" => $return_url,
+            "out_trade_no" => $out_trade_no,
+            "name" => $name,
+            "money" => $money
+        );
+        if ($this->epaySign($paramArr, $key) != $sign){
+            return json($this->getReturn(-1,"签名错误"));
+        }
+
+        // type 映射：alipay->2, wxpay->1
+        $t = ($type == "alipay") ? 2 : 1;
+
+        // notify_url / return_url：优先下单参数，空则用后台默认
+        if (!$notify_url){
+            $res = Db::name("setting")->where("vkey","notifyUrl")->find();
+            $notify_url = $res['vvalue'];
+        }
+        if (!$return_url){
+            $res = Db::name("setting")->where("vkey","returnUrl")->find();
+            $return_url = $res['vvalue'];
+        }
+
+        $result = $this->_createOrderCore($out_trade_no, $t, $money, $name, $notify_url, $return_url);
+        if (!$result['ok']){
+            return json($this->getReturn(-1, $result['msg']));
+        }
+
+        if ($isJson == "1"){
+            return json($this->getReturn(1,"成功",$result['data']));
+        }else{
+            echo "<script>window.location.href = 'payPage/pay.html?orderId=" . $result['data']['orderId'] . "'</script>";
+        }
+    }
+
+    /**
+     * 易支付协议查单（api.php act=order 等价）
+     * GET epayOrder?pid=1&key=通讯密钥&out_trade_no=xxx （或 &trade_no=xxx）
+     */
+    public function epayOrder(){
+        $apiMode = Db::name("setting")->where("vkey","apiMode")->find();
+        if (!$apiMode || $apiMode['vvalue']!="1"){
+            return json($this->getReturn(-1,"当前为V免签工作模式，请使用 getOrder 接口"));
+        }
+
+        $pid = input("pid");
+        $key = input("key");
+        $out_trade_no = input("out_trade_no");
+        $trade_no = input("trade_no");
+
+        if ($pid != "1"){
+            return json(array("code"=>-3,"msg"=>"商户ID不存在"));
+        }
+        $res2 = Db::name("setting")->where("vkey","key")->find();
+        if ($key != $res2['vvalue']){
+            return json(array("code"=>-3,"msg"=>"商户密钥错误"));
+        }
+        if (!$out_trade_no && !$trade_no){
+            return json(array("code"=>-4,"msg"=>"订单号不能为空"));
+        }
+
+        if ($trade_no){
+            $row = Db::name("pay_order")->where("order_id",$trade_no)->find();
+        }else{
+            $row = Db::name("pay_order")->where("pay_id",$out_trade_no)->find();
+        }
+        if (!$row){
+            return json(array("code"=>-1,"msg"=>"订单号不存在"));
+        }
+
+        return json(array(
+            "code" => 1,
+            "msg" => "succ",
+            "trade_no" => $row['order_id'],
+            "out_trade_no" => $row['pay_id'],
+            "type" => ($row['type']==1 ? "wxpay" : "alipay"),
+            "money" => $row['really_price'],
+            "param" => $row['param'],
+            "status" => $row['state'],
+            "addtime" => $row['create_date']
+        ));
     }
     //关闭订单
     public function closeOrder(){
@@ -499,15 +672,35 @@ class Index
             $res2 = Db::name("setting")->where("vkey","key")->find();
             $key = $res2['vvalue'];
 
-            $p = "payId=".$res['pay_id']."&param=".$res['param']."&type=".$res['type']."&price=".$res['price']."&reallyPrice=".$res['really_price'];
-
-            $sign = $res['pay_id'].$res['param'].$res['type'].$res['price'].$res['really_price'].$key;
-            $p = $p . "&sign=".md5($sign);
-
-            if (strpos($url,"?")===false){
-                $url = $url."?".$p;
+            // 接口模式分流：易支付格式回调
+            $apiMode = Db::name("setting")->where("vkey","apiMode")->find();
+            if ($apiMode && $apiMode['vvalue']=="1"){
+                $p = array(
+                    "pid" => "1",
+                    "trade_no" => $res['order_id'],
+                    "out_trade_no" => $res['pay_id'],
+                    "type" => ($res['type']==1 ? "wxpay" : "alipay"),
+                    "name" => $res['param'],
+                    "money" => $res['really_price'],
+                    "trade_status" => "TRADE_SUCCESS"
+                );
+                $p['sign'] = $this->epaySign($p, $key);
+                if (strpos($url,"?")===false){
+                    $url = $url."?".http_build_query($p);
+                }else{
+                    $url = $url."&".http_build_query($p);
+                }
             }else{
-                $url = $url."&".$p;
+                $p = "payId=".$res['pay_id']."&param=".$res['param']."&type=".$res['type']."&price=".$res['price']."&reallyPrice=".$res['really_price'];
+
+                $sign = $res['pay_id'].$res['param'].$res['type'].$res['price'].$res['really_price'].$key;
+                $p = $p . "&sign=".md5($sign);
+
+                if (strpos($url,"?")===false){
+                    $url = $url."?".$p;
+                }else{
+                    $url = $url."&".$p;
+                }
             }
 
 
@@ -551,6 +744,9 @@ class Index
 
     //关闭过期订单接口(请用定时器至少1分钟调用一次)
     public function closeEndOrder(){
+        // 通知失败订单轻量重发（易支付协议依赖重试）
+        $this->_retryNotify();
+
         $res = Db::name("setting")->where("vkey","lastheart")->find();
         $lastheart = $res['vvalue'];
         if ((time()-$lastheart)>60){
@@ -598,6 +794,60 @@ class Index
 
 
     }
+    /**
+     * 重发通知失败(state=2)的订单回调，最多重试3次，间隔>=60秒
+     */
+    private function _retryNotify(){
+        $rows = Db::name("pay_order")
+            ->where("state",2)
+            ->where("retry_count", "<", 3)
+            ->limit(20)
+            ->select();
+        foreach ($rows as $row){
+            if (time() - $row['close_date'] < 60) continue;
+            $url = $row['notify_url'];
+            if (empty($url)) continue;
+
+            $res2 = Db::name("setting")->where("vkey","key")->find();
+            $key = $res2['vvalue'];
+
+            $apiMode = Db::name("setting")->where("vkey","apiMode")->find();
+            if ($apiMode && $apiMode['vvalue']=="1"){
+                $p = array(
+                    "pid" => "1",
+                    "trade_no" => $row['order_id'],
+                    "out_trade_no" => $row['pay_id'],
+                    "type" => ($row['type']==1 ? "wxpay" : "alipay"),
+                    "name" => $row['param'],
+                    "money" => $row['really_price'],
+                    "trade_status" => "TRADE_SUCCESS"
+                );
+                $p['sign'] = $this->epaySign($p, $key);
+                if (strpos($url,"?")===false){
+                    $url = $url."?".http_build_query($p);
+                }else{
+                    $url = $url."&".http_build_query($p);
+                }
+            }else{
+                $p = "payId=".$row['pay_id']."&param=".$row['param']."&type=".$row['type']."&price=".$row['price']."&reallyPrice=".$row['really_price'];
+                $sign = $row['pay_id'].$row['param'].$row['type'].$row['price'].$row['really_price'].$key;
+                $p = $p . "&sign=".md5($sign);
+                if (strpos($url,"?")===false){
+                    $url = $url."?".$p;
+                }else{
+                    $url = $url."&".$p;
+                }
+            }
+
+            $re = $this->getCurl($url);
+            if ($re=="success"){
+                Db::name("pay_order")->where("id",$row['id'])->update(array("state"=>1,"close_date"=>time()));
+            }else{
+                Db::name("pay_order")->where("id",$row['id'])->update(array("retry_count"=>$row['retry_count']+1,"close_date"=>time()));
+            }
+        }
+    }
+
 
 
     //发送Http请求

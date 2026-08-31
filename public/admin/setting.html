@@ -1,5 +1,20 @@
 <div class="layui-form" action="">
 
+    <div class="layui-form-item" style="padding: 10px 0; border-bottom: 1px dashed #eee;">
+        <label class="layui-form-label">接口模式</label>
+        <div class="layui-input-block">
+            <select id="apiMode" lay-filter="apiMode">
+                <option value="0">V免签格式（默认，createOrder 协议）</option>
+                <option value="1">易支付格式（epaySubmit 协议）</option>
+            </select>
+            <div class="layui-form-mid layui-word-aux" style="margin-left: 0; padding-top: 6px; line-height: 1.6;">
+                切换系统对外接口工作模式。易支付模式下：pid 固定为 1，key 使用下方通讯密钥，
+                notify_url/return_url 共用下方默认回调地址；商户下单用 <code>epaySubmit</code>、
+                查单用 <code>epayOrder</code>，支付成功将按易支付协议 GET 回调通知。切换不影响监控端 appPush/appHeart。
+            </div>
+        </div>
+    </div>
+
     <div class="layui-form-item">
         <label class="layui-form-label">后台账号</label>
         <div class="layui-input-block">
@@ -259,6 +274,7 @@
         var key = $("#key").val();
         var close = $("#close").val();
         var payQf = $("#payQf").val();
+        var apiMode = $("#apiMode").val();
         if (user == ""){
             layer.msg("请输入管理员账号");
             return;
@@ -296,7 +312,7 @@
         }
         wximg = wximg.replace(/enQrcode\?url=/g,"");
         zfbimg = zfbimg.replace(/enQrcode\?url=/g,"");
-        $.post("admin/index/saveSetting","user="+user+"&pass="+pass+"&notifyUrl="+notifyUrl+"&returnUrl="+returnUrl+"&key="+key+"&wxpay="+wximg+"&zfbpay="+zfbimg+"&close="+close+"&payQf="+payQf,function (data) {
+        $.post("admin/index/saveSetting","user="+user+"&pass="+pass+"&notifyUrl="+notifyUrl+"&returnUrl="+returnUrl+"&key="+key+"&wxpay="+wximg+"&zfbpay="+zfbimg+"&close="+close+"&payQf="+payQf+"&apiMode="+apiMode,function (data) {
             if (data.code==1){
                 $.post("admin/index/getSettings",function (data) {
                     console.log(data);
@@ -307,6 +323,9 @@
                         $("#returnUrl").val(data.data.returnUrl);
                         $("#key").val(data.data.key);
                         $("#close").val(data.data.close);
+                        $("#payQf").val(data.data.payQf);
+                        $("#apiMode").val(data.data.apiMode);
+                        layui.form.render('select');
 
                         if (data.data.wxpay!=""){
                             $('#wximg').attr('src', "enQrcode?url="+data.data.wxpay);
@@ -333,6 +352,7 @@
                 $("#key").val(data.data.key);
                 $("#close").val(data.data.close);
                 $("#payQf").val(data.data.payQf);
+                $("#apiMode").val(data.data.apiMode);
 
 
                 if (data.data.wxpay!=""){

@@ -819,6 +819,105 @@ echo &quot;success&quot;;
     </div>
 </div>
 
+<div class="layui-collapse" lay-filter="epay">
+    <div class="layui-colla-item">
+        <h2 class="layui-colla-title">易支付模式（接口模式=易支付格式时使用）</h2>
+        <div class="layui-colla-content">
+            <blockquote class="layui-elem-quote">
+                <p>在<b>后台系统设置</b>中把「接口模式」切换为<b>易支付格式</b>后，系统对外接口即变为易支付协议：<br>
+                下单：<code>epaySubmit</code>　查单：<code>epayOrder</code>　支付成功回调：GET 通知商户 notify_url<br>
+                商户ID <b>pid 固定为 1</b>，密钥 key 使用后台「通讯密钥」，notify_url/return_url 优先使用下单参数、空则用后台默认回调地址。<br>
+                切换不影响监控端 appPush / appHeart，也不影响 V免签格式接口（createOrder 等仍可调用，但会提示当前模式）。</p>
+            </blockquote>
+
+            <h3>1. 下单 epaySubmit</h3>
+            <p>请求地址：<code>http://服务器域名/epaySubmit</code>（GET/POST 均可）</p>
+            <pre class="layui-code">
+请求参数：
+pid          商户ID，固定为 1
+type         支付方式：alipay / wxpay
+notify_url   异步回调地址（支付成功后系统 GET 通知此地址）
+return_url   同步跳转地址
+out_trade_no 商户订单号（唯一）
+name         商品名称（可选）
+money        订单金额（元）
+sign         签名
+
+签名方式（与彩虹易支付一致）：
+1. 按参数名 ASCII 升序排序（排除 sign / sign_type，空值不参与）
+2. 拼接为 k=v&k=v 格式
+3. 末尾追加通讯密钥
+4. md5 得到 sign
+
+PHP 签名示例：
+$params = array("pid"=>"1","type"=>$type,"notify_url"=>$notify_url,"return_url"=>$return_url,"out_trade_no"=>$out_trade_no,"name"=>$name,"money"=>$money);
+ksort($params);
+$signstr = "";
+foreach ($params as $k => $v) { $signstr .= $k."=".$v."&"; }
+$signstr = substr($signstr, 0, -1) . $key;  // $key = 后台通讯密钥
+$sign = md5($signstr);
+
+返回：跳转到支付页面（带 isJson=1 时返回 JSON，包含 orderId/payUrl）</pre>
+
+            <h3>2. 查单 epayOrder</h3>
+            <pre class="layui-code">
+请求地址：http://服务器域名/epayOrder?pid=1&key=通讯密钥&out_trade_no=商户订单号
+（也可用 trade_no=云端订单号 查询）
+
+返回 JSON：
+{
+    "code": 1,
+    "msg": "succ",
+    "trade_no": "云端订单号",
+    "out_trade_no": "商户订单号",
+    "type": "alipay/wxpay",
+    "money": "实际支付金额",
+    "status": 0,        // 0=待支付 1=已支付 2=已关闭/通知失败
+    "addtime": 创建时间
+}</pre>
+
+            <h3>3. 异步回调（易支付格式）</h3>
+            <p>支付成功且监控端推送后，系统 <b>GET</b> 请求商户 notify_url，参数：</p>
+            <pre class="layui-code">
+pid=1
+trade_no=云端订单号
+out_trade_no=商户订单号
+type=alipay/wxpay
+name=商品名称
+money=实际支付金额
+trade_status=TRADE_SUCCESS
+sign=签名（与下单相同规则，参与参数为 pid/trade_no/out_trade_no/type/name/money/trade_status）
+
+商户端验签成功并处理业务后，必须输出字符串 success（小写），系统收到后才认为通知成功；
+否则订单标记为通知失败，系统会间隔约 60 秒自动重试，最多 3 次。
+            </pre>
+            <pre class="layui-code">
+PHP 回调验签示例：
+$key = "后台通讯密钥";
+$params = array(
+    "pid" => $_GET['pid'],
+    "trade_no" => $_GET['trade_no'],
+    "out_trade_no" => $_GET['out_trade_no'],
+    "type" => $_GET['type'],
+    "name" => $_GET['name'],
+    "money" => $_GET['money'],
+    "trade_status" => $_GET['trade_status'],
+);
+ksort($params);
+$signstr = "";
+foreach ($params as $k => $v) { $signstr .= $k."=".$v."&"; }
+$signstr = substr($signstr, 0, -1) . $key;
+
+if (md5($signstr) != $_GET['sign']) { exit("error_sign"); }
+if ($_GET['trade_status'] != "TRADE_SUCCESS") { exit("error"); }
+
+echo "success";
+// 继续业务流程：根据 out_trade_no 更新订单状态
+            </pre>
+        </div>
+    </div>
+</div>
+
 
 
 

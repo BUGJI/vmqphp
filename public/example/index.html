@@ -9,6 +9,7 @@
 </head>
 <body>
 
+<p>接口协议：<select id="apiMode"><option value="vmq">V免签格式</option><option value="epay">易支付格式</option></select></p>
 <p>商户订单号：<input type="text" id="payId"/></p>
 <p>商户订单价：<input type="number" id="price" value="0.1"/></p>
 <p>自定义参数：<input type="text" id="param" value="vone666"/></p>
@@ -19,7 +20,11 @@
     $("#payId").val(new Date().getTime());
     function zf() {
         var p = "payId="+$("#payId").val() + "&price="+$("#price").val()+"&param="+$("#param").val()+"&type="+$("#type").val();
-        window.location.href = "main.php?" + p;
+        if ($("#apiMode").val() == "epay") {
+            window.location.href = "main_epay.php?" + p;
+        } else {
+            window.location.href = "main.php?" + p;
+        }
 
     }
 </script>

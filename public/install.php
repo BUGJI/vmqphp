@@ -159,6 +159,7 @@ function mysql_tables() {
           `return_url` varchar(255) DEFAULT NULL,
           `state` int(11) NOT NULL,
           `type` int(11) NOT NULL,
+          `retry_count` int(11) NOT NULL DEFAULT 0,
           PRIMARY KEY (`id`)
         ) ENGINE=MyISAM DEFAULT CHARSET=utf8",
         "CREATE TABLE IF NOT EXISTS `pay_qrcode` (
@@ -198,7 +199,8 @@ function sqlite_tables() {
           really_price REAL NOT NULL,
           return_url TEXT,
           state INTEGER NOT NULL,
-          type INTEGER NOT NULL
+          type INTEGER NOT NULL,
+          retry_count INTEGER NOT NULL DEFAULT 0
         )",
         "CREATE TABLE IF NOT EXISTS pay_qrcode (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -231,6 +233,7 @@ function seed_setting($pdo, $type, $adminUser, $adminPass) {
         'payQf'      => '1',
         'wxpay'      => '',
         'zfbpay'     => '',
+        'apiMode'    => '0',
     ];
     foreach ($items as $k => $v) {
         if (strtolower($type) === 'sqlite') {

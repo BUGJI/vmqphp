@@ -23,6 +23,10 @@ Route::any('getOrder','index/index/getOrder');
 Route::any('checkOrder','index/index/checkOrder');
 Route::any('getState','index/index/getState');
 
+// 易支付协议接口（接口模式=易支付格式时使用）
+Route::any('epaySubmit','index/index/epaySubmit');
+Route::any('epayOrder','index/index/epayOrder');
+
 Route::any('appHeart','index/index/appHeart');
 Route::any('appPush','index/index/appPush');
 
