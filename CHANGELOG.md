@@ -28,6 +28,7 @@
 - `route/route.php`：新增 `epaySubmit` / `epayOrder` 两条路由。
 - `public/install.php`：初始化 `setting` 表种子增加 `apiMode`，`pay_order` 建表增加 `retry_count`（MySQL / SQLite 双库）。
 - **后台设置保存放宽校验**：保存时不再强制要求同步回调地址（`returnUrl`）、异步回调地址（`notifyUrl`）、微信 / 支付宝收款二维码非空，避免阻挡用户修改密钥、接口模式等其他配置。
+- **登录页 CDN 资源本地化**：`public/index.html` 原通过 jsdelivr / baomitu CDN 加载 jQuery、skel、layer，在国内网络环境经常加载失败导致登录按钮无反应；现将 jQuery 1.11.3、skel 3.0.1、layer 3.1.1（含 theme 样式与图标）全部下载到 `assets/js/` 本地引用，彻底摆脱外网依赖。
 
 ### 升级说明
 
