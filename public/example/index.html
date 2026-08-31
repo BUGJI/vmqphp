@@ -10,16 +10,17 @@
 <body>
 
 <p>接口协议：<select id="apiMode"><option value="vmq">V免签格式</option><option value="epay">易支付格式</option></select></p>
+<p>通讯密钥：<input type="text" id="key" value="aa15188ce0f1d97018524d9862ef2a46" style="width:320px"/>（填后台「系统设置」里的通讯密钥）</p>
 <p>商户订单号：<input type="text" id="payId"/></p>
 <p>商户订单价：<input type="number" id="price" value="0.1"/></p>
 <p>自定义参数：<input type="text" id="param" value="vone666"/></p>
 <p>支付方式：<select id="type"><option value="1">微信支付</option><option value="2">支付宝支付</option></select></p>
 <button onclick="zf()">支付</button>
-<script  src="https://lib.baomitu.com/jquery/3.4.0/jquery.min.js"></script>
+<script  src="../assets/js/jquery-1.11.3.min.js"></script>
 <script>
     $("#payId").val(new Date().getTime());
     function zf() {
-        var p = "payId="+$("#payId").val() + "&price="+$("#price").val()+"&param="+$("#param").val()+"&type="+$("#type").val();
+        var p = "payId="+$("#payId").val() + "&price="+$("#price").val()+"&param="+$("#param").val()+"&type="+$("#type").val()+"&key="+encodeURIComponent($("#key").val());
         if ($("#apiMode").val() == "epay") {
             window.location.href = "main_epay.php?" + p;
         } else {

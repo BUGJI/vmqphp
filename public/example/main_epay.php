@@ -7,7 +7,7 @@
  */
 ini_set("error_reporting","E_ALL & ~E_NOTICE");
 
-$key = "aa15188ce0f1d97018524d9862ef2a46";//通讯密钥（与 main.php 一致）
+$key = isset($_GET['key']) && $_GET['key'] != '' ? $_GET['key'] : "aa15188ce0f1d97018524d9862ef2a46";//通讯密钥（可用页面传入，默认示例密钥）
 $pid = "1";//商户ID（易支付模式固定为1）
 $host = "../epaySubmit";
 

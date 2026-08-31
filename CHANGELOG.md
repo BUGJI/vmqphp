@@ -29,6 +29,8 @@
 - `public/install.php`：初始化 `setting` 表种子增加 `apiMode`，`pay_order` 建表增加 `retry_count`（MySQL / SQLite 双库）。
 - **后台设置保存放宽校验**：保存时不再强制要求同步回调地址（`returnUrl`）、异步回调地址（`notifyUrl`）、微信 / 支付宝收款二维码非空，避免阻挡用户修改密钥、接口模式等其他配置。
 - **登录页 CDN 资源本地化**：`public/index.html` 原通过 jsdelivr / baomitu CDN 加载 jQuery、skel、layer，在国内网络环境经常加载失败导致登录按钮无反应；现将 jQuery 1.11.3、skel 3.0.1、layer 3.1.1（含 theme 样式与图标）全部下载到 `assets/js/` 本地引用，彻底摆脱外网依赖。
+- **后台框架页 CDN 资源本地化**：`public/aaa.html` 原通过 staticfile / baomitu CDN 加载 html5shiv、respond、jQuery 3.3.1，同样存在 CDN 加载失败导致后台菜单空白的问题；已本地化到 `assets/js/`。
+- **测试页通讯密钥可填写**：`public/example/index.html` 新增「通讯密钥」输入框，不再写死密钥；`main.php` / `main_epay.php` / `notify.php` / `return.php` 支持 `key` 参数覆盖（未传时回退示例默认密钥），方便用户按自己后台配置的密钥直接测试。
 
 ### 升级说明
 
