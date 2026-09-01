@@ -4,6 +4,8 @@ V免签  —— 个人开发者收款解决方案
 
 > 更新日志见 [CHANGELOG.md](CHANGELOG.md)（本分支修复了 PHP 7.4+/8.x 环境下的登录 500 问题）
 >
+> 本仓库为 [szvone/vmqphp](https://github.com/szvone/vmqphp)（原作者：vone）的**维护分支**，原版已不再维护。
+>
 > 🚀 快速安装：上传后直接访问 `http://你的域名/install.php`，按向导完成环境检测与数据库配置（支持 MySQL / SQLite）。安装完成后请立即删除该文件。
 
 
@@ -17,9 +19,7 @@ V免签(PHP) 是基于Thinkphp5.1 + mysql 实现的一套免签支付程序，�
  + 支持监听店员收款信息，可使用支付宝微信小号/模拟器挂机，方便IOS用户
  + 免root，免xp框架，不修改支付宝/微信客户端，防封更安全
  
-> 如果您不熟悉PHP环境的配置，您可以使用Java版本的服务端（ https://github.com/szvone/Vmq ）
-
-> 监控端的开源地址位于： https://github.com/szvone/VmqApk
+> 监控端的开源地址（维护分支）位于： https://github.com/BUGJI/vmqApk
 
 > V免签的运行环境为PHP版本>=5.6。
 
@@ -221,4 +221,6 @@ V免签遵循 MIT License 开源协议发布，并提供免费使用，请勿用
 版权所有Copyright © 2019 by vone (http://szvone.cn)
 
 All rights reserved。
+
+维护分支：BUGJI（https://github.com/BUGJI/vmqphp）
 
